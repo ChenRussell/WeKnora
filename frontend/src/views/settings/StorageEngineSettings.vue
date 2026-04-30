@@ -40,6 +40,7 @@
               <t-option value="tos" :label="$t('settings.storage.engineTos')" />
               <t-option value="s3" label="AWS S3" />
               <t-option value="oss" :label="$t('settings.storage.engineOss')" />
+              <t-option value="ks3" :label="$t('settings.storage.engineKs3')" />
             </t-select>
             <span v-if="saveMessage && !drawerVisible" :class="['save-msg', saveSuccess ? 'success' : 'error']" style="margin-left: 12px;">
               {{ saveMessage }}
@@ -102,6 +103,15 @@
             <t-tag theme="success" variant="light" size="small">{{ $t('settings.storage.configurable') }}</t-tag>
           </div>
           <p class="engine-card-desc">{{ $t('settings.storage.ossDesc') }}</p>
+        </div>
+
+        <!-- KS3 -->
+        <div :class="['engine-card', { active: drawerVisible && currentEngine === 'ks3' }]" @click="openDrawer('ks3')">
+          <div class="engine-card-header">
+            <h3>{{ $t('settings.storage.ks3Title') }}</h3>
+            <t-tag theme="success" variant="light" size="small">{{ $t('settings.storage.configurable') }}</t-tag>
+          </div>
+          <p class="engine-card-desc">{{ $t('settings.storage.ks3Desc') }}</p>
         </div>
       </div>
     </template>
@@ -487,6 +497,67 @@
             </div>
           </div>
         </template>
+
+        <!-- KS3 -->
+        <template v-else-if="currentEngine === 'ks3'">
+          <div class="engine-info-block">
+            <p class="engine-desc">
+              {{ $t('settings.storage.ks3Desc') }}
+            </p>
+          </div>
+          <div class="engine-form">
+            <div class="form-item">
+              <label class="form-label">Endpoint</label>
+              <t-input
+                v-model="config.ks3.endpoint"
+                :placeholder="$t('settings.storage.ks3EndpointPlaceholder')"
+                clearable
+              />
+            </div>
+            <div class="form-item">
+              <label class="form-label">Region</label>
+              <t-input
+                v-model="config.ks3.region"
+                :placeholder="$t('settings.storage.ks3RegionPlaceholder')"
+                clearable
+              />
+            </div>
+            <div class="form-item">
+              <label class="form-label">Access Key</label>
+              <t-input
+                v-model="config.ks3.access_key"
+                :placeholder="$t('settings.storage.ks3AccessKeyPlaceholder')"
+                clearable
+              />
+            </div>
+            <div class="form-item">
+              <label class="form-label">Secret Key</label>
+              <t-input
+                v-model="config.ks3.secret_key"
+                type="password"
+                :placeholder="$t('settings.storage.ks3SecretKeyPlaceholder')"
+                clearable
+              />
+            </div>
+            <div class="form-item">
+              <label class="form-label">{{ $t('settings.storage.bucketName') }}</label>
+              <t-input
+                v-model="config.ks3.bucket_name"
+                :placeholder="$t('settings.storage.bucketPlaceholder')"
+                clearable
+              />
+            </div>
+            <div class="form-item">
+              <label class="form-label">{{ $t('settings.storage.pathPrefix') }}</label>
+              <t-input
+                v-model="config.ks3.path_prefix"
+                :placeholder="$t('settings.storage.prefixPlaceholder')"
+                clearable
+              />
+            </div>
+          </div>
+        </template>
+
         <div class="form-item" v-if="currentEngine && currentEngine !== 'local'">
           <label class="form-label">{{ $t('settings.storage.testConnection') }}</label>
           <div class="api-test-section">
@@ -562,6 +633,14 @@ const defaultConfig = (): StorageEngineConfig => ({
     temp_bucket_name: '',
     temp_region: '',
   },
+  ks3: {
+    endpoint: '',
+    region: '',
+    access_key: '',
+    secret_key: '',
+    bucket_name: '',
+    path_prefix: '',
+  },
 })
 
 const loading = ref(true)
@@ -587,6 +666,8 @@ const checkingS3 = ref(false)
 const s3CheckResult = ref<{ ok: boolean; message: string } | null>(null)
 const checkingOss = ref(false)
 const ossCheckResult = ref<{ ok: boolean; message: string } | null>(null)
+const checkingKs3 = ref(false)
+const ks3CheckResult = ref<{ ok: boolean; message: string } | null>(null)
 
 const drawerVisible = ref(false)
 const currentEngine = ref<string | null>(null)
@@ -598,6 +679,7 @@ const currentCheckState = computed(() => {
     case 'tos': return { loading: checkingTos.value, result: tosCheckResult.value, onCheck: onCheckTos }
     case 's3': return { loading: checkingS3.value, result: s3CheckResult.value, onCheck: onCheckS3 }
     case 'oss': return { loading: checkingOss.value, result: ossCheckResult.value, onCheck: onCheckOss }
+    case 'ks3': return { loading: checkingKs3.value, result: ks3CheckResult.value, onCheck: onCheckKs3 }
     default: return { loading: false, result: null, onCheck: () => {} }
   }
 })
@@ -611,6 +693,7 @@ const drawerTitle = computed(() => {
     tos: t('settings.storage.tosTitle'),
     s3: t('settings.storage.s3Title'),
     oss: t('settings.storage.ossTitle'),
+    ks3: t('settings.storage.ks3Title'),
   }
   return titles[currentEngine.value] || currentEngine.value
 })
@@ -633,6 +716,7 @@ function openDrawer(engine: string) {
   tosCheckResult.value = null
   s3CheckResult.value = null
   ossCheckResult.value = null
+  ks3CheckResult.value = null
 }
 
 async function loadConfig() {
@@ -697,6 +781,16 @@ async function loadConfig() {
               temp_region: d.oss.temp_region || '',
             }
           : defaultConfig().oss!,
+        ks3: d.ks3
+          ? {
+              endpoint: d.ks3.endpoint || '',
+              region: d.ks3.region || '',
+              access_key: d.ks3.access_key || '',
+              secret_key: d.ks3.secret_key || '',
+              bucket_name: d.ks3.bucket_name || '',
+              path_prefix: d.ks3.path_prefix || '',
+            }
+          : defaultConfig().ks3!,
       }
     }
   } catch {
@@ -783,6 +877,14 @@ function buildPayload(): StorageEngineConfig {
       use_temp_bucket: config.value.oss?.use_temp_bucket ?? false,
       temp_bucket_name: (config.value.oss?.temp_bucket_name || '').trim(),
       temp_region: (config.value.oss?.temp_region || '').trim(),
+    },
+    ks3: {
+      endpoint: (config.value.ks3?.endpoint || '').trim(),
+      region: (config.value.ks3?.region || '').trim(),
+      access_key: (config.value.ks3?.access_key || '').trim(),
+      secret_key: (config.value.ks3?.secret_key || '').trim(),
+      bucket_name: (config.value.ks3?.bucket_name || '').trim(),
+      path_prefix: (config.value.ks3?.path_prefix || '').trim(),
     },
   }
 }
@@ -875,6 +977,20 @@ async function onCheckOss() {
     ossCheckResult.value = { ok: false, message: e instanceof Error ? e.message : t('settings.storage.requestFailed') }
   } finally {
     checkingOss.value = false
+  }
+}
+
+async function onCheckKs3() {
+  checkingKs3.value = true
+  ks3CheckResult.value = null
+  try {
+    const payload = buildPayload()
+    const res = await checkStorageEngine({ provider: 'ks3', ks3: payload.ks3 })
+    ks3CheckResult.value = res?.data ?? { ok: false, message: t('settings.storage.unknownError') }
+  } catch (e: unknown) {
+    ks3CheckResult.value = { ok: false, message: e instanceof Error ? e.message : t('settings.storage.requestFailed') }
+  } finally {
+    checkingKs3.value = false
   }
 }
 
@@ -1107,6 +1223,13 @@ onMounted(loadAll)
     margin-left: 4px;
     font-weight: 600;
   }
+}
+
+.form-desc {
+  font-size: 12px;
+  color: var(--td-text-color-secondary);
+  margin: -4px 0 8px 0;
+  line-height: 1.5;
 }
 
 .form-item--inline {
